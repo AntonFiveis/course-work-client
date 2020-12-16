@@ -1,22 +1,33 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import styled from 'styled-components'
+import {getAllRealEstates, patchRealEstates} from '../../services/real-estates-service'
 
-export default function RealEstatesTable ({realEstates, setRealEstates}) {
+export default function RealEstatesTable () {
+    const [realEstates, setRealEstates] = useState([])
     const [selectedRow, setSelectedRow] = useState(null),
-        [selectedKey, setSelectedKey] = useState(null)
-    if(!realEstates || realEstates.length === 0) return <div></div>
+        [selectedKey, setSelectedKey] = useState(null),
+        [changed, setChanged] = useState(null)
 
-    const gridRowTemplate = realEstates.reduce((prev1, curr1, index1) => 
-    `${prev1}${index1 === 0 ? '' : `
-    `}${`"` + Object.keys(curr1).reduce((prev, _, index) => `${prev}${index === 0 ? '' : ' '}prop${index1}${index}`, '') + `"`}`, '') 
-    
-    const propNames = Object.keys(realEstates[0]).reduce((prev, _, index) => `${prev}${index === 0 ? '' : ' '}propName${index}`, '')
-    const RealEstatesTableView = styled.div`
-        display: grid;
-        grid-template-areas: 
-        "${propNames}"
-        ${gridRowTemplate};
-    `
+    useEffect(() => {
+        let cleanupFunction = false
+
+        const fetchData = async () => {
+            try {
+                const newRealEstates = await getAllRealEstates()
+                if (!cleanupFunction) {
+                    setRealEstates(newRealEstates)
+                    setChanged(Array.from({length: newRealEstates.length}, () => false))
+                    cleanupFunction = true
+                }
+            } catch (error) {
+                console.log(error)
+            }
+        }
+        fetchData()
+        return () => cleanupFunction = true
+    }, [])
+
+    if(!realEstates || realEstates.length === 0) return <div></div>
 
     const onDoubleClick = rowIndex => key => {
         setSelectedRow(rowIndex)
@@ -27,9 +38,20 @@ export default function RealEstatesTable ({realEstates, setRealEstates}) {
         const newRealEstates = [...realEstates]
         newRealEstates[selectedRow][selectedKey] = value
         setRealEstates(newRealEstates)
+        changed[selectedRow] = true
+        setChanged(changed)
     }
 
-    const rows = realEstates.map((item, index) => 
+    const saveChanges = async () => {
+        const updatedRows = realEstates.filter((_, index) => changed[index])
+        if(updatedRows.length === 0) return;
+        const ok = await patchRealEstates(updatedRows)
+        if(ok)
+            alert ('Saved succesfully')
+        else alert ('Invalid changes!!!')
+    }
+
+    const rows = realEstates.sort((a, b) => a.realEstateID - b.realEstateID).map((item, index) => 
         <TableRow 
             key={`row${index}`}
             setNewValue={setNewValue} 
@@ -41,42 +63,50 @@ export default function RealEstatesTable ({realEstates, setRealEstates}) {
     Object.keys(realEstates[0]).forEach(key => tableHeaderObj[key] = key)
 
     return (
+        <>
         <RealEstatesTableView>
-            <TableRow index={-1} realEstate={tableHeaderObj}/>
-            {rows}
+            <tbody>
+                <TableRow index={-1} realEstate={tableHeaderObj}/>
+                {rows}
+            </tbody>
         </RealEstatesTableView>
+        <ButtonGroup onClick={saveChanges}>
+            <StyledButton>Save changes</StyledButton>
+        </ButtonGroup>
+        </>
     )
 }
 
+const RealEstatesTableView = styled.table`
+    width: 100%;
+    border-collapse: collapse;
+`
+
 const TableRow = ({realEstate, index, onDoubleClick, setNewValue}) => {
-    const [hovered, setHovered] = useState(false)
     const [selected, setSelected] = useState('')
     const [value, setValue] = useState ('')
-    if(index === -1) return (
-        <> 
-            {Object.keys(realEstate).map((key, index1) => <TableItem key={`${key}-${index}`} className="header" style={{gridArea: `propName${index1}`}}><Span>{realEstate[key]}<Span/></Span></TableItem>)}
-        </>
-    )
 
+    const changableValues = ['title', 'priceInDollars', 'district', 'address', 'floorsCount', 'roomsCount', 'house', 'isCurrentlyAvailable' ]
+
+    if(index === -1) return (
+        <TableRowView className="header"> 
+            {Object.keys(realEstate).map((key, index1) => <TableItem key={`${key}-${index}`}  style={{gridArea: `propName${index1}`}}><Span>{realEstate[key]}<Span/></Span></TableItem>)}
+        </TableRowView>
+    )
     
-    const rowItems = Object.keys(realEstate).map((key, index1) => 
+    const rowItems = Object.keys(realEstate).map((key) => 
         <TableItem 
             key={`${key}-${index}`}
-            onMouseEnter={() => setHovered(true)} 
-            onMouseOut={({relatedTarget, target}) => {
-                setHovered(false)
-            } }
-            onClick={({target}) => {
+            onDoubleClick={({target}) => {
+                if(!changableValues.includes(key)) return;
+
                 if(!selected) {
-                    console.log(key)
                     setValue(realEstate[key])
                     setSelected(key)
                     onDoubleClick(key)
-                    // console.log(selected)
                 }
             }}
-            className={hovered ? 'hovered' : ''} 
-            style={{gridArea: `prop${index}${index1}`}}>
+            >
             {!selected || selected !== key 
                 ? <Span className='span'>{realEstate[key].toString()}</Span>
                 : (
@@ -92,33 +122,33 @@ const TableRow = ({realEstate, index, onDoubleClick, setNewValue}) => {
         </TableItem>
     )
 
-    // console.log(realEstate)
-
     return (
-        <>
+        <TableRowView>
             {rowItems}
-        </>
+        </TableRowView>
     )
 }
 
-const TableItem = styled.div`
-    background-color: #fff;
+const TableItem = styled.th`
     padding: .7rem;
     text-align: center;
-    display: flex;
+    font-weight: 400;
 
+`
+
+const TableRowView = styled.tr`
+    background-color: #fff;
     transition: all 150ms ease;
+    &:hover {
+        background-color: #f08d54;
+        color: #fff;
+    }
 
     &.header {
         background-color: #c75d00;
         color: #fff;
         font-weight: 600;
         
-    }
-
-    &.hovered {
-        background-color: #f08d54;
-        color: #fff;
     }
 `
 
@@ -132,4 +162,16 @@ const Span = styled.span`
 
 const Input = styled.input`
 
+`
+
+const ButtonGroup = styled.div`
+    margin: 1rem auto;
+    display: flex;
+`
+
+const StyledButton = styled.button`
+    padding: 1rem;
+    font-size: 1rem;
+    color: #fff;
+    background: #1420ba;
 `

@@ -7,29 +7,12 @@ import './app.css'
 const App = () => {
 
     const [realEstates, setRealEstates] = useState([])
-    useEffect(() => {
-        let cleanupFunction = false
-
-        const fetchData = async () => {
-            try {
-                const newRealEstates = await getAllRealEstates()
-                if (!cleanupFunction) {
-                    setRealEstates(newRealEstates)
-                    cleanupFunction = true
-                }
-            }
-            catch (error) {
-                console.log(error)
-            }
-        }
-        fetchData()
-        return () => cleanupFunction = true
-    }, [])
     
+
     return (
         <AppView>
             <Title>Real Estates Company</Title>
-            <RealEstatesTable realEstates={realEstates} setRealEstates={setRealEstates}></RealEstatesTable>
+            <RealEstatesTable realEstates={realEstates}></RealEstatesTable>
         </AppView>
     )
 }
