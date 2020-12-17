@@ -10,3 +10,18 @@ export const patchRealEstates = async (changedRealEstates) => fetch(urlBase, {
         },
         body: JSON.stringify(changedRealEstates)
     }).then(res => res.ok)
+
+    
+export const postNewRealEstate = async (realEstate) => fetch(urlBase, {
+    method: 'POST',
+    mode: 'cors',
+    headers: {
+        'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(realEstate)
+}).then(res => res.ok)
+
+export const deleteRealEstate = async(realEstateID) => fetch(`${urlBase}/${realEstateID}`, {
+    method: 'DELETE',
+    mode: 'cors'
+}).then(res => res.ok)
