@@ -1,16 +1,22 @@
 import React, { useState, useEffect } from 'react'
 import styled from 'styled-components'
-import {deleteRealEstate, getAllRealEstates, patchRealEstates, postNewRealEstate} from '../../services/real-estates-service'
+import {deleteRealEstate, getAllRealEstates, getRealEstatesByTitle, getRealEstatesByDistrict, patchRealEstates, postNewRealEstate, getRealEstatesByPrice} from '../../services/real-estates-service'
 
 export default function RealEstatesTable () {
-    const [realEstates, setRealEstates] = useState([])
+    const [realEstates, setRealEstates] = useState([]),
+        [keys, setKeys] = useState([])
     const [selectedRow, setSelectedRow] = useState(null),
         [selectedKey, setSelectedKey] = useState(null),
         [changed, setChanged] = useState([]),
         [page,setPage] = useState(0),
-        reOnPage =4
+        reOnPage = 2,
+        numberOfPages = Math.ceil(realEstates.length / reOnPage)
 
     const [showModal, setShowModal] = useState(false)
+    const [searchMode, setSearchMode] = useState('price') //'title' | 'price' | 'district'
+    const [searchTitle, setSearchTitle] = useState(''),
+        [searchPriceBetween, setSearchPriceBetween] = useState({start: 0, end: 100000000}),
+        [searchDistrict, setSearchDistrict] = useState('')
 
 
     const [newTitle, setNewTitle] = useState(''),
@@ -28,7 +34,10 @@ export default function RealEstatesTable () {
             const newRealEstates = await getAllRealEstates()
             if (!cleanupFunction) {
                 setRealEstates(newRealEstates)
+                
                 setChanged(Array.from({length: newRealEstates.length}, () => []))
+                if(newRealEstates.length !== 0)
+                setKeys(Object.keys(newRealEstates[0]))
                 // cleanupFunction = true
             }
         } catch (error) {
@@ -107,7 +116,7 @@ export default function RealEstatesTable () {
             </DarkBg>)
 
 
-    if(!realEstates || realEstates.length === 0 || changed.length === 0) return <div> {showModal ? modal : null }
+    if(!realEstates || (realEstates.length === 0 && keys.length === 0) || changed.length === 0) return <div> {showModal ? modal : null }
         <StyledButton className="success" onClick={() => setShowModal(true)}>Add real estates</StyledButton></div>
 
     const onDoubleClick = rowIndex => key => {
@@ -144,27 +153,80 @@ export default function RealEstatesTable () {
             realEstate={item}
             changed={changed[index]}
             />)
-    const pageRows = rows.slice(page*reOnPage,(page+1)*reOnPage>rows.length? rows.length: (page+1)*reOnPage)
+    const pageRows = rows.slice(page * reOnPage, (page + 1) * reOnPage > rows.length ? rows.length : (page + 1) * reOnPage)
 
-    const tableHeaderObj = {}
-    Object.keys(realEstates[0]).forEach(key => tableHeaderObj[key] = key)
+    // const tableHeaderObj = {}
+    // Object.keys(realEstates[0]).forEach(key => tableHeaderObj[key] = key)
     const nextPage = ()=>{
-        const newPage = page+1>=rows.length/reOnPage? 0:page+1
-        setPage(newPage)
+        if(page + 1 >= numberOfPages) return;
+        setPage(page + 1)
     }
     const prevPage = ()=>{
-        const prevPage = page-1<0? Math.floor(rows.length/reOnPage):page-1
-        setPage(prevPage)
+        if(page - 1 < 0) return;
+        setPage(page - 1)
+    }
+
+    const onSearchTitleChange = async (value) => {
+        if(value === '') reload()
+        else {
+            const newRealEstates = await getRealEstatesByTitle(value)
+            console.log(newRealEstates)
+            setRealEstates(newRealEstates)
+        }
+        setSearchTitle(value)
+    }
+
+    const onSearchDistrictChange = async (value) => {
+        if(value === '') reload()
+        else {
+            const newRealEstates = await getRealEstatesByDistrict(value)
+            setRealEstates(newRealEstates)
+        }
+        setSearchDistrict(value)
     }
 
 
+    const searchOnPrice = async () => {
+        const {start, end} = searchPriceBetween
+        if(start === '' || end === '') return;
+
+        const newRealEstates = await getRealEstatesByPrice(searchPriceBetween)
+        setRealEstates(newRealEstates)
+    }
+
+    const changeSearchMode = (mode) => {
+        setSearchMode(mode)
+        setSearchPriceBetween({start: 0, end: 100000000})
+        setSearchTitle('')
+        setSearchDistrict('')
+        reload()
+    }
 
 
     return (
         <>
+        <SearchBlock>
+            <SearchTitle>Search</SearchTitle>
+            <SearchModeBlock>
+                <SearchModeButton className={searchMode === 'title' ? 'selected' : ''} onClick={() => changeSearchMode('title')}>Title</SearchModeButton>
+                <SearchModeButton className={searchMode === 'price' ? 'selected' : ''} onClick={() => changeSearchMode('price')}>Price</SearchModeButton>
+                <SearchModeButton className={searchMode === 'district' ? 'selected' : ''} onClick={() => changeSearchMode('district')}>District</SearchModeButton>
+            </SearchModeBlock>
+            {searchMode === 'title' ? <StyledInput placeholder="Title" value={searchTitle} onChange={({target}) => onSearchTitleChange(target.value)}/> : null}
+            {searchMode === 'district' ? <StyledInput placeholder="District" value={searchDistrict} onChange={({target}) => onSearchDistrictChange(target.value)}/> : null}
+            {searchMode === 'price' ? 
+            <div style={{display: 'flex'}}>
+                <StyledInput placeholder="From"  value={searchPriceBetween.start} onChange={({target}) => setSearchPriceBetween({...searchPriceBetween, start: target.value})}/>
+                <StyledInput placeholder="To" value={searchPriceBetween.end} onChange={({target}) => setSearchPriceBetween({...searchPriceBetween, end: target.value})}/>
+                <StyledButton className="search" onClick={searchOnPrice}>Search</StyledButton>
+            </div> : null}
+        </SearchBlock>
         <RealEstatesTableView>
             <tbody>
-                <TableRow index={-1} realEstate={tableHeaderObj}/>
+                <TableRow index={-1} realEstate={keys.reduce((prev, curr) => {
+                    prev[curr.toString()] = curr
+                    return prev
+                }, {})}/>
                 {pageRows}
             </tbody>
         </RealEstatesTableView>
@@ -174,8 +236,8 @@ export default function RealEstatesTable () {
             <StyledButton>Save changes</StyledButton>
         </ButtonGroup>
         <ButtonGroup>
-            <StyledButton className="success" onClick={prevPage}>Prev</StyledButton>
-            <StyledButton className="success" onClick={nextPage}>Next</StyledButton>
+            <StyledButton style={page - 1 < 0 ? {display: 'none'} : {}} className="success" onClick={prevPage}>Prev</StyledButton>
+            <StyledButton style={page + 1 >= numberOfPages ? {display: 'none'} : {}} className="success" onClick={nextPage}>Next</StyledButton>
         </ButtonGroup>
         </>
     )
@@ -300,6 +362,7 @@ const StyledButton = styled.button`
     color: #fff;
     background: #1420ba;
     border: none;
+    text-align: center;
 
     &.success {
         background-color: #08bf5a;
@@ -307,6 +370,11 @@ const StyledButton = styled.button`
 
     &.danger {
         background-color: #e33d3d;
+    }
+
+    &.search {
+        padding: .75rem;
+        margin-bottom: .25rem;
     }
 `
 
@@ -343,4 +411,48 @@ const DarkBg = styled.div`
     display: flex;
     z-index: 4;
     background: rgba(0,0,0,0.5);
+`
+const SearchBlock = styled.div`
+    display: flex;
+    padding: 1rem;
+    justify-content: center;
+    align-items: center;
+`
+const SearchTitle = styled.h1`
+    color: #fff;
+    padding-bottom: .25rem;
+    margin-right: 2rem;
+`
+
+const SearchModeBlock = styled.div`
+    display: flex;
+    border-radius: .5rem;
+    
+    
+`
+
+const SearchModeButton = styled.button`
+    flex-grow: 1;
+    background: #325ded;
+    color: #fff;
+    padding: 1rem;
+    border-radius: 0;
+    border: none;
+    font-size: x-large;
+
+    &:hover {
+        background: #6588fc;
+    }
+
+    &.selected {
+        background: #6588fc;
+    }
+
+    &:last-child {
+        border-radius: 0 0.5rem 0.5rem 0;
+    }
+    &:first-child {
+        border-radius: 0.5rem 0 0 0.5rem;
+    }
+
 `

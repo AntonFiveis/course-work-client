@@ -25,3 +25,8 @@ export const deleteRealEstate = async(realEstateID) => fetch(`${urlBase}/${realE
     method: 'DELETE',
     mode: 'cors'
 }).then(res => res.ok)
+
+
+export const getRealEstatesByTitle = async (title) => fetch(`${urlBase}/title?search=${title}`).then(res => res.json())
+export const getRealEstatesByDistrict = async (district) => fetch(`${urlBase}/district?search=${district}`).then(res => res.json())
+export const getRealEstatesByPrice = async ({start, end}) => fetch(`${urlBase}/price?start=${start}&end=${end}`).then(res => res.json())
