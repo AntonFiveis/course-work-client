@@ -6,11 +6,13 @@ export default function RealEstatesTable () {
     const [realEstates, setRealEstates] = useState([])
     const [selectedRow, setSelectedRow] = useState(null),
         [selectedKey, setSelectedKey] = useState(null),
-        [changed, setChanged] = useState([])
+        [changed, setChanged] = useState([]),
+        [page,setPage] = useState(0),
+        reOnPage =4
 
     const [showModal, setShowModal] = useState(false)
 
-    
+
     const [newTitle, setNewTitle] = useState(''),
     [newPrice, setNewPrice] = useState(''),
     [newSquare, setNewSquare] = useState(''),
@@ -36,85 +38,10 @@ export default function RealEstatesTable () {
 
     useEffect(() => {
         let cleanupFunction = false
-
-        // const fetchData = async () => {
-        //     try {
-        //         const newRealEstates = await getAllRealEstates()
-        //         if (!cleanupFunction) {
-        //             setRealEstates(newRealEstates)
-        //             setChanged(Array.from({length: newRealEstates.length}, () => []))
-        //             cleanupFunction = true
-        //         }
-        //     } catch (error) {
-        //         console.log(error)
-        //     }
-        // }
         reload(cleanupFunction)
         return () => cleanupFunction = true
     }, [])
 
-    
-
-    if(!realEstates || realEstates.length === 0 || changed.length === 0) return <div></div>
-
-    const onDoubleClick = rowIndex => key => {
-        if(selectedKey || selectedRow) throw new Error()
-        setSelectedRow(rowIndex)
-        setSelectedKey(key)
-    }
-
-    const setNewValue = value => {
-        const newRealEstates = [...realEstates]
-        newRealEstates[selectedRow][selectedKey] = value
-        setRealEstates(newRealEstates)
-        changed[selectedRow].push(selectedKey)
-        setChanged(changed)
-        setSelectedKey(null)
-        setSelectedRow(null)
-    }
-
-    const saveChanges = async () => {
-        const updatedRows = realEstates.map((item, index) => {
-            if (changed[index].length === 0) return undefined;
-            
-            const result = {realEstateID: item.realEstateID}
-            changed[index].forEach(key => {
-                result[key] = item[key]
-            })
-            return result
-        }).filter(item => item !== undefined)
-        if (updatedRows.length === 0) return;
-
-        console.log(updatedRows)
-        const ok = await patchRealEstates(updatedRows)
-        if(ok) {
-            alert ('Saved succesfully')
-            setChanged(Array.from({length: realEstates.length}, () => []))
-        }
-        else alert ('Invalid changes!!!')
-    }
-    
-    const removeRealEstate = async (realEstateID) => {
-        console.log(realEstateID)
-        const ok = await deleteRealEstate(realEstateID)
-
-        if(ok) reload()
-        else alert ("Something went wrong...")
-    }
-
-    const rows = realEstates.sort((a, b) => a.realEstateID - b.realEstateID).map((item, index) => 
-        <TableRow 
-            key={`row${index}`}
-            setNewValue={setNewValue}
-            remove={() => removeRealEstate(item.realEstateID)} 
-            onDoubleClick = {onDoubleClick(index)}
-            index={index} 
-            realEstate={item}
-            changed={changed[index]}
-            />)
-
-    const tableHeaderObj = {} 
-    Object.keys(realEstates[0]).forEach(key => tableHeaderObj[key] = key)
 
     const addNewRealEstate = async () => {
         const ownerID = JSON.parse(localStorage.getItem('user')).userID
@@ -133,45 +60,122 @@ export default function RealEstatesTable () {
         const ok = await postNewRealEstate(newRealEstate)
         if(ok) {
             setShowModal(false)
-            reload()
+            reload(false)
         }
     }
 
-    
+    const saveChanges = async () => {
+        const updatedRows = realEstates.map((item, index) => {
+            if (changed[index].length === 0) return undefined;
+
+            const result = {realEstateID: item.realEstateID}
+            changed[index].forEach(key => {
+                result[key] = item[key]
+            })
+            return result
+        }).filter(item => item !== undefined)
+        if (updatedRows.length === 0) return;
+
+        console.log(updatedRows)
+        const ok = await patchRealEstates(updatedRows)
+        if(ok) {
+            alert ('Saved succesfully')
+            setChanged(Array.from({length: realEstates.length}, () => []))
+        }
+        else alert ('Invalid changes!!!')
+    }
+
+    const modal = (
+            <DarkBg id='dark' onClick={({target}) => target.id.includes('dark') ? setShowModal(false) : null}>
+                <Modal>
+                    <ModalTitle>Input data about real estate</ModalTitle>
+                    <StyledInput value={newTitle} onChange={({target}) => setNewTitle(target.value)} placeholder="Title"/>
+                    <StyledInput value={newPrice} onChange={({target}) => setNewPrice(target.value)} placeholder="Price in dollars"/>
+                    <StyledInput value={newSquare} onChange={({target}) => setNewSquare(target.value)}placeholder="Square in m2"/>
+                    <StyledInput value={newDistrict} onChange={({target}) => setNewDiscirict(target.value)} placeholder="District"/>
+                    <StyledInput value={newAddress} onChange={({target}) => setNewAddress(target.value)} placeholder="Address"/>
+                    <StyledInput value={newFloorsCount} onChange={({target}) => setNewFloorsCount(target.value)} placeholder="Floors count"/>
+                    <StyledInput value={newRoomsCount} onChange={({target}) => setNewRoomsCount(target.value)} placeholder="Rooms count"/>
+                    <div style={{margin: '0 auto'}}>
+                        <Span className="big">Is a house</Span>
+                        <StyledInput value={newHouse} onChange={({target}) => setNewHouse(target.checked)} type="checkbox" placeholder="Is a house"/>
+                    </div>
+                    <ButtonGroup onClick={saveChanges}>
+                        <StyledButton className="success" onClick={addNewRealEstate}>Add real estate</StyledButton>
+                    </ButtonGroup>
+                </Modal>
+            </DarkBg>)
+
+
+    if(!realEstates || realEstates.length === 0 || changed.length === 0) return <div> {showModal ? modal : null }
+        <StyledButton className="success" onClick={() => setShowModal(true)}>Add real estates</StyledButton></div>
+
+    const onDoubleClick = rowIndex => key => {
+        if(selectedKey || selectedRow) throw new Error()
+        setSelectedRow(rowIndex)
+        setSelectedKey(key)
+    }
+
+    const setNewValue = value => {
+        const newRealEstates = [...realEstates]
+        newRealEstates[selectedRow][selectedKey] = value
+        setRealEstates(newRealEstates)
+        changed[selectedRow].push(selectedKey)
+        setChanged(changed)
+        setSelectedKey(null)
+        setSelectedRow(null)
+    }
+
+    const removeRealEstate = async (realEstateID) => {
+        console.log(realEstateID)
+        const ok = await deleteRealEstate(realEstateID)
+
+        if(ok) reload(false)
+        else alert ("Something went wrong...")
+    }
+
+    const rows = realEstates.sort((a, b) => a.realEstateID - b.realEstateID).map((item, index) =>
+        <TableRow
+            key={`row${index}`}
+            setNewValue={setNewValue}
+            remove={() => removeRealEstate(item.realEstateID)}
+            onDoubleClick = {onDoubleClick(index)}
+            index={index}
+            realEstate={item}
+            changed={changed[index]}
+            />)
+    const pageRows = rows.slice(page*reOnPage,(page+1)*reOnPage>rows.length? rows.length: (page+1)*reOnPage)
+
+    const tableHeaderObj = {}
+    Object.keys(realEstates[0]).forEach(key => tableHeaderObj[key] = key)
+    const nextPage = ()=>{
+        const newPage = page+1>=rows.length/reOnPage? 0:page+1
+        setPage(newPage)
+    }
+    const prevPage = ()=>{
+        const prevPage = page-1<0? Math.floor(rows.length/reOnPage):page-1
+        setPage(prevPage)
+    }
+
+
+
 
     return (
         <>
         <RealEstatesTableView>
             <tbody>
                 <TableRow index={-1} realEstate={tableHeaderObj}/>
-                {rows}
+                {pageRows}
             </tbody>
         </RealEstatesTableView>
-        {showModal 
-        ? (
-        <DarkBg id='dark' onClick={({target}) => target.id.includes('dark') ? setShowModal(false) : null}>
-            <Modal>
-                <ModalTitle>Input data about real estate</ModalTitle>
-                <StyledInput value={newTitle} onChange={({target}) => setNewTitle(target.value)} placeholder="Title"/>
-                <StyledInput value={newPrice} onChange={({target}) => setNewPrice(target.value)} placeholder="Price in dollars"/>
-                <StyledInput value={newSquare} onChange={({target}) => setNewSquare(target.value)}placeholder="Square in m2"/>
-                <StyledInput value={newDistrict} onChange={({target}) => setNewDiscirict(target.value)} placeholder="District"/>
-                <StyledInput value={newAddress} onChange={({target}) => setNewAddress(target.value)} placeholder="Address"/>
-                <StyledInput value={newFloorsCount} onChange={({target}) => setNewFloorsCount(target.value)} placeholder="Floors count"/>
-                <StyledInput value={newRoomsCount} onChange={({target}) => setNewRoomsCount(target.value)} placeholder="Rooms count"/>
-                <div style={{margin: '0 auto'}}>
-                    <Span className="big">Is a house</Span>
-                    <StyledInput value={newHouse} onChange={({target}) => setNewHouse(target.checked)} type="checkbox" placeholder="Is a house"/>
-                </div>
-                <ButtonGroup onClick={saveChanges}>
-                    <StyledButton className="success" onClick={addNewRealEstate}>Add real estate</StyledButton>
-                </ButtonGroup>
-            </Modal>
-        </DarkBg>)
-        : null }
+        {showModal ? modal : null }
         <ButtonGroup onClick={saveChanges}>
             <StyledButton className="success" onClick={() => setShowModal(true)}>Add real estates</StyledButton>
             <StyledButton>Save changes</StyledButton>
+        </ButtonGroup>
+        <ButtonGroup>
+            <StyledButton className="success" onClick={prevPage}>Prev</StyledButton>
+            <StyledButton className="success" onClick={nextPage}>Next</StyledButton>
         </ButtonGroup>
         </>
     )
@@ -189,13 +193,13 @@ const TableRow = ({realEstate, index, onDoubleClick, setNewValue, changed, remov
     const changableValues = ['title', 'priceInDollars', 'district', 'address', 'floorsCount', 'roomsCount', 'house', 'isCurrentlyAvailable' ]
 
     if(index === -1) return (
-        <TableRowView className="header"> 
+        <TableRowView className="header">
             {Object.keys(realEstate).map((key, index1) => <TableItem key={`${key}-${index}`}  style={{gridArea: `propName${index1}`}}><Span>{realEstate[key]}<Span/></Span></TableItem>)}
         </TableRowView>
     )
-    
-    const rowItems = Object.keys(realEstate).map((key) => 
-        <TableItem 
+
+    const rowItems = Object.keys(realEstate).map((key) =>
+        <TableItem
             key={`${key}-${index}`}
             className={changed && changed.includes(key) ? 'changed' : ''}
             onDoubleClick={({target}) => {
@@ -207,11 +211,11 @@ const TableRow = ({realEstate, index, onDoubleClick, setNewValue, changed, remov
                         setValue(realEstate[key])
                         setSelected(key)
                     } catch (error) {}
-                    
+
                 }
             }}
             >
-            {!selected || selected !== key 
+            {!selected || selected !== key
                 ? <Span className='span'>{realEstate[key].toString()}</Span>
                 : (
                 <Form onSubmit={(ev) => {
@@ -234,7 +238,7 @@ const TableRow = ({realEstate, index, onDoubleClick, setNewValue, changed, remov
                 <StyledButton onClick={() => remove()} style={{display: 'block', margin: 'auto 1rem'}} className="danger">Remove</StyledButton>
             </th>
         </TableRowView>
-        
+
         </>
     )
 }
