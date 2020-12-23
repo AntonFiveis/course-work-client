@@ -9,14 +9,15 @@ export default function RealEstatesTable () {
         [selectedKey, setSelectedKey] = useState(null),
         [changed, setChanged] = useState([]),
         [page,setPage] = useState(0),
-        reOnPage = 2,
+        reOnPage = 4,
         numberOfPages = Math.ceil(realEstates.length / reOnPage)
 
     const [showModal, setShowModal] = useState(false)
     const [searchMode, setSearchMode] = useState('price') //'title' | 'price' | 'district'
     const [searchTitle, setSearchTitle] = useState(''),
         [searchPriceBetween, setSearchPriceBetween] = useState({start: 0, end: 100000000}),
-        [searchDistrict, setSearchDistrict] = useState('')
+        [searchDistrict, setSearchDistrict] = useState(''),
+        [newOwnerID, setNewOwnerID] = useState(null)
 
 
     const [newTitle, setNewTitle] = useState(''),
@@ -34,7 +35,7 @@ export default function RealEstatesTable () {
             const newRealEstates = await getAllRealEstates()
             if (!cleanupFunction) {
                 setRealEstates(newRealEstates)
-                
+
                 setChanged(Array.from({length: newRealEstates.length}, () => []))
                 if(newRealEstates.length !== 0)
                 setKeys(Object.keys(newRealEstates[0]))
@@ -53,10 +54,10 @@ export default function RealEstatesTable () {
 
 
     const addNewRealEstate = async () => {
-        const ownerID = JSON.parse(localStorage.getItem('user')).userID
+
         const newRealEstate = {
             title: newTitle,
-            ownerID,
+            ownerID:newOwnerID,
             priceInDollars: newPrice,
             squareInM2: newSquare,
             district: newDistrict,
@@ -105,6 +106,7 @@ export default function RealEstatesTable () {
                     <StyledInput value={newAddress} onChange={({target}) => setNewAddress(target.value)} placeholder="Address"/>
                     <StyledInput value={newFloorsCount} onChange={({target}) => setNewFloorsCount(target.value)} placeholder="Floors count"/>
                     <StyledInput value={newRoomsCount} onChange={({target}) => setNewRoomsCount(target.value)} placeholder="Rooms count"/>
+                    <StyledInput value={newOwnerID} onChange={({target}) => setNewOwnerID(target.value)} placeholder="Owner ID"/>
                     <div style={{margin: '0 auto'}}>
                         <Span className="big">Is a house</Span>
                         <StyledInput value={newHouse} onChange={({target}) => setNewHouse(target.checked)} type="checkbox" placeholder="Is a house"/>
@@ -174,6 +176,7 @@ export default function RealEstatesTable () {
             setRealEstates(newRealEstates)
         }
         setSearchTitle(value)
+        setPage(0)
     }
 
     const onSearchDistrictChange = async (value) => {
@@ -183,6 +186,7 @@ export default function RealEstatesTable () {
             setRealEstates(newRealEstates)
         }
         setSearchDistrict(value)
+        setPage(0)
     }
 
 
@@ -192,6 +196,7 @@ export default function RealEstatesTable () {
 
         const newRealEstates = await getRealEstatesByPrice(searchPriceBetween)
         setRealEstates(newRealEstates)
+        setPage(0);
     }
 
     const changeSearchMode = (mode) => {
@@ -214,7 +219,7 @@ export default function RealEstatesTable () {
             </SearchModeBlock>
             {searchMode === 'title' ? <StyledInput placeholder="Title" value={searchTitle} onChange={({target}) => onSearchTitleChange(target.value)}/> : null}
             {searchMode === 'district' ? <StyledInput placeholder="District" value={searchDistrict} onChange={({target}) => onSearchDistrictChange(target.value)}/> : null}
-            {searchMode === 'price' ? 
+            {searchMode === 'price' ?
             <div style={{display: 'flex'}}>
                 <StyledInput placeholder="From"  value={searchPriceBetween.start} onChange={({target}) => setSearchPriceBetween({...searchPriceBetween, start: target.value})}/>
                 <StyledInput placeholder="To" value={searchPriceBetween.end} onChange={({target}) => setSearchPriceBetween({...searchPriceBetween, end: target.value})}/>
